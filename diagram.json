@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "author": "Caio Rigues",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-esp32-devkit-v1", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-microsd-card", "id": "sd1", "top": 209.3, "left": 23.19, "attrs": {} },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn1",
+      "top": 116.6,
+      "left": -124.8,
+      "attrs": { "color": "red", "key": "Alt" }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": 143.15,
+      "left": -52.8,
+      "attrs": { "value": "1000" }
+    },
+    { "type": "wokwi-hc-sr04", "id": "ultrasonic1", "top": -108.04, "left": -122.91, "attrs": {} }
+  ],
+  "connections": [
+    [ "esp:TX0", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX0", "$serialMonitor:TX", "", [] ],
+    [ "sd1:VCC", "esp:3V3", "red", [ "h46", "v-98.43" ] ],
+    [ "sd1:GND", "esp:GND.1", "black", [ "h52.27", "v-88.76" ] ],
+    [ "esp:D5", "sd1:CS", "green", [ "h66.94", "v184.91" ] ],
+    [ "sd1:DI", "esp:D23", "orange", [ "h78.33", "v-242.76" ] ],
+    [ "sd1:DO", "esp:D19", "magenta", [ "h94.06", "v-155.96" ] ],
+    [ "sd1:SCK", "esp:D18", "blue", [ "h119.08", "v-165.78" ] ],
+    [ "btn1:2.r", "r1:1", "green", [ "h0" ] ],
+    [ "btn1:2.l", "esp:D13", "violet", [ "h-5.42", "v-35.74", "h75.45", "v26.64" ] ],
+    [ "r1:2", "ultrasonic1:GND", "black", [ "h-28.66", "v-162.34" ] ],
+    [ "ultrasonic1:VCC", "esp:VIN", "red", [ "v12.15", "h17.38", "v159.89" ] ],
+    [ "ultrasonic1:TRIG", "esp:D25", "yellow", [ "v0" ] ],
+    [ "ultrasonic1:ECHO", "esp:D33", "cyan", [ "v0" ] ]
+  ],
+  "dependencies": {}
+}
