@@ -15,6 +15,8 @@
 
 int contador = 0;
 
+int sensor_values[100] = {};
+
 void setup(){
   Serial.begin(115200);
   Serial.println("Inicializando o cartão SD...");
@@ -35,7 +37,7 @@ void loop(){
 
 }
 
-int sensor(){
+int sensor(){ //pega e trata os dados do sensor ultrassonico
   pinMode(TRIGGER, OUTPUT);
   pinMode(ECHO, INPUT);
 
@@ -49,7 +51,7 @@ int sensor(){
   return distance;
 }
 
-void data(void *pvParameters){
+void data(void *pvParameters){ //callback do int sensor() para poder criar uma task
   while(1){
     int distance = sensor();
     Serial.println("Distância em CM: ");
@@ -58,11 +60,10 @@ void data(void *pvParameters){
   }
 }
 
-void record(void * pvParameters){
+void record(void * pvParameters){ //grava os dados retornados pelo int sensor()
   while(1){
     contador ++;
     int distance = sensor();
-
     File file = SD.open("/teste.txt", FILE_WRITE);
 
     if (file){
@@ -72,7 +73,6 @@ void record(void * pvParameters){
     }
     else{
       Serial.println("Falha ao acessar o arquivo.");
-
     }
     if (contador >= 5){
       File file_read = SD.open("/teste.txt");
