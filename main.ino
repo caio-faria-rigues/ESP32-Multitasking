@@ -65,7 +65,7 @@ void data(void *pvParameters) //callback do int sensor() para poder criar uma ta
     {
       if(xSemaphoreTake(xMutex, portMAX_DELAY) == pdTRUE)
       {
-        while(contador2 < 100)
+        while(contador2 < 10)
         {
           int distance = sensor();
           Serial.println("Distância em CM: ");
@@ -74,12 +74,12 @@ void data(void *pvParameters) //callback do int sensor() para poder criar uma ta
           contador2 ++;
         }
         memset(sensor_values, 0, sizeof(sensor_values));
-        Serial.println("ihaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
       }
+      Serial.println("acabou a task aqui");
       xSemaphoreGive(xMutex);
       contador2 = 0;
     }
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
 
@@ -103,25 +103,32 @@ void record(void * pvParameters) //grava os dados retornados pelo int sensor()
             {
               file.print("Distância: ");
               file.println(sensor_values[i]);
+              Serial.println(sensor_values[i]);
+            }
+            else
+            {
+              Serial.println("Algo deu errado na escrita.");
             }
           }
           file.close();
+          Serial.println("Arquivo Atualizado");
         }
         else
         {
           Serial.println("Falha ao acessar o arquivo.");
         }
-        if(contador >= 5)
+        if(contador >= 2)
         {
           File file_read = SD.open("/teste.txt");
           if(file_read)
           {
-            Serial.println("Do arquivo: ");
+            Serial.println("Leitura do arquivo: ");
             while(file_read.available())
             {
               Serial.write(file_read.read());
             }
             file_read.close();
+            Serial.println("Arquivo fechado.");
           }
         }
       }
