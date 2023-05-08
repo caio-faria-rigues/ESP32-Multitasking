@@ -65,7 +65,7 @@ void data(void *pvParameters) //callback do int sensor() para poder criar uma ta
     {
       if(xSemaphoreTake(xMutex, portMAX_DELAY) == pdTRUE)
       {
-        while(contador2 < 10)
+        while(contador2 < 100)
         {
           int distance = sensor();
           Serial.println("Distância em CM: ");
@@ -73,7 +73,6 @@ void data(void *pvParameters) //callback do int sensor() para poder criar uma ta
           sensor_values[contador2] = distance;
           contador2 ++;
         }
-        memset(sensor_values, 0, sizeof(sensor_values));
       }
       Serial.println("acabou a task aqui");
       xSemaphoreGive(xMutex);
@@ -99,19 +98,13 @@ void record(void * pvParameters) //grava os dados retornados pelo int sensor()
         {
           for(int i = 0; i < sensor_values_size; i++)
           {
-            if(sensor_values[i]!=0)
-            {
-              file.print("Distância: ");
-              file.println(sensor_values[i]);
-              Serial.println(sensor_values[i]);
-            }
-            else
-            {
-              Serial.println("Algo deu errado na escrita.");
-            }
+            file.print("Distância: ");
+            file.println(sensor_values[i]);
+            Serial.println(sensor_values[i]);
           }
           file.close();
           Serial.println("Arquivo Atualizado");
+          memset(sensor_values, 0, sizeof(sensor_values));
         }
         else
         {
