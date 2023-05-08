@@ -14,8 +14,9 @@
 #define BTN_CHANGE_STATUS 13
 
 int contador = 0;
-
+int contador2 = 0;
 int sensor_values[100] = {};
+int sensor_values_size = sizeof(sensor_values) / sizeof(sensor_values[0]);
 
 void setup(){
   Serial.begin(115200);
@@ -55,7 +56,10 @@ void data(void *pvParameters){ //callback do int sensor() para poder criar uma t
   while(1){
     int distance = sensor();
     Serial.println("Distância em CM: ");
-    Serial.print(distance);
+    Serial.println(distance);
+    sensor_values[contador2] = distance;
+    contador2 ++;
+
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
@@ -67,6 +71,12 @@ void record(void * pvParameters){ //grava os dados retornados pelo int sensor()
     File file = SD.open("/teste.txt", FILE_WRITE);
 
     if (file){
+      for(int i = 0; i < sensor_values_size; i++){
+        if(sensor_values[i]!=0){
+          file.print("Distância: ");
+          file.println(sensor_values[i]);
+        }
+      }
       file.println("Distância: ");
       file.print(distance);
       file.close();
