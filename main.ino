@@ -18,11 +18,16 @@ int contador2 = 0;
 int sensor_values[100] = {};
 int sensor_values_size = sizeof(sensor_values) / sizeof(sensor_values[0]);
 
-void setup(){
+SemaphoreHandle_t xMutex;
+
+void setup()
+{
+  xMutex = xSemaphoreCreateMutex();
   Serial.begin(115200);
   Serial.println("Inicializando o cartão SD...");
 
-  if(!SD.begin(CS_PIN)){
+  if(!SD.begin(CS_PIN))
+  {
     Serial.println("Cartão SD não encontrado.");
     return;
   }
@@ -30,15 +35,15 @@ void setup(){
 
   xTaskCreate(data, "task 1", 1000, NULL, 1, NULL);
   xTaskCreate(record, "task 2", 3000, NULL, 1, NULL);
+}
 
+void loop()
+{
 
 }
 
-void loop(){
-
-}
-
-int sensor(){ //pega e trata os dados do sensor ultrassonico
+int sensor() //pega e trata os dados do sensor ultrassonico
+{
   pinMode(TRIGGER, OUTPUT);
   pinMode(ECHO, INPUT);
 
@@ -52,47 +57,75 @@ int sensor(){ //pega e trata os dados do sensor ultrassonico
   return distance;
 }
 
-void data(void *pvParameters){ //callback do int sensor() para poder criar uma task
-  while(1){
-    int distance = sensor();
-    Serial.println("Distância em CM: ");
-    Serial.println(distance);
-    sensor_values[contador2] = distance;
-    contador2 ++;
-
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+void data(void *pvParameters) //callback do int sensor() para poder criar uma task
+{
+  while(1)
+  {
+    if(xMutex != NULL)
+    {
+      if(xSemaphoreTake(xMutex, portMAX_DELAY) == pdTRUE)
+      {
+        while(contador2 < 100)
+        {
+          int distance = sensor();
+          Serial.println("Distância em CM: ");
+          Serial.println(distance);
+          sensor_values[contador2] = distance;
+          contador2 ++;
+        }
+        memset(sensor_values, 0, sizeof(sensor_values));
+        Serial.println("ihaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+      }
+      xSemaphoreGive(xMutex);
+      contador2 = 0;
+    }
+    vTaskDelay(100 / portTICK_PERIOD_MS);
   }
 }
 
-void record(void * pvParameters){ //grava os dados retornados pelo int sensor()
-  while(1){
-    contador ++;
-    int distance = sensor();
-    File file = SD.open("/teste.txt", FILE_WRITE);
+void record(void * pvParameters) //grava os dados retornados pelo int sensor()
+{
+  while(1)
+  {
+    if(xMutex != NULL)
+    {
+      if(xSemaphoreTake(xMutex, portMAX_DELAY) == pdTRUE)
+      {
+        contador ++;
+        int distance = sensor();
+        File file = SD.open("/teste.txt", FILE_APPEND);
 
-    if (file){
-      for(int i = 0; i < sensor_values_size; i++){
-        if(sensor_values[i]!=0){
-          file.print("Distância: ");
-          file.println(sensor_values[i]);
+        if(file)
+        {
+          for(int i = 0; i < sensor_values_size; i++)
+          {
+            if(sensor_values[i]!=0)
+            {
+              file.print("Distância: ");
+              file.println(sensor_values[i]);
+            }
+          }
+          file.close();
+        }
+        else
+        {
+          Serial.println("Falha ao acessar o arquivo.");
+        }
+        if(contador >= 5)
+        {
+          File file_read = SD.open("/teste.txt");
+          if(file_read)
+          {
+            Serial.println("Do arquivo: ");
+            while(file_read.available())
+            {
+              Serial.write(file_read.read());
+            }
+            file_read.close();
+          }
         }
       }
-      file.println("Distância: ");
-      file.print(distance);
-      file.close();
-    }
-    else{
-      Serial.println("Falha ao acessar o arquivo.");
-    }
-    if (contador >= 5){
-      File file_read = SD.open("/teste.txt");
-      if (file_read){
-        Serial.println("Do arquivo: ");
-        while(file_read.available()){
-          Serial.write(file_read.read());
-        }
-        file_read.close();
-      }
+      xSemaphoreGive(xMutex);
     }
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
