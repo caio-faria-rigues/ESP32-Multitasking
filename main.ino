@@ -1,7 +1,7 @@
 #include "SD.h"
 #include "FS.h"
 #include <SPI.h>
-#include <BMP280.h>
+#include <Adafruit_BMP280.h>
 #include <Wire.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -18,19 +18,23 @@
 
 int contador = 0;
 int contador2 = 0;
-int sensor_values[100] = {};
-int sensor_values_size = sizeof(sensor_values) / sizeof(sensor_values[0]);
+int pressure_values[100] = {};
+int pressure_values_size = sizeof(pressure_values) / sizeof(pressure_values[0]);
+int temperature_values[100] = {};
+int temperature_values_size = sizeof(temperature_values) / sizeof(temperature_values[0]);
 
 SemaphoreHandle_t xMutex;
 
-BMP280 bmp;
+Adafruit_BMP280 bmp;
+#define BMP_SDA 21//Definição dos pinos I2C
+#define BMP_SCL 22
 uint32_t pressure = 0;
 float temperature = 0;
 
 void sensor() //pega e trata os dados do sensor ultrassonico
 {
-  pressure = bmp.getPressure();
-  temperature = bmp.getTemperature();
+  pressure = bmp.readPressure();
+  temperature = bmp.readTemperature();
 }
 
 void sd_manage(fs :: FS &fs , const char * path)
@@ -40,15 +44,22 @@ void sd_manage(fs :: FS &fs , const char * path)
 
   if(file)
   {
-    for(int i = 0; i < sensor_values_size; i++)
+    for(int i = 0; i < pressure_values_size; i++)
     {
-      file.print("Distância: ");
-      file.println(sensor_values[i]);
-      Serial.println(sensor_values[i]);
+      file.print("Temperatura ");
+      file.print(temperature_values[i]);
+      file.print(" | Pressão: ");
+      file.print(pressure_values[i]);
+      
+      Serial.print("Temperatura ");
+      Serial.print(temperature_values[i]);
+      Serial.print(" | Pressão: ");
+      Serial.print(pressure_values[i]);
     }
     file.close();
     Serial.println("Arquivo Atualizado");
-    memset(sensor_values, 0, sizeof(sensor_values));
+    memset(pressure_values, 0, sizeof(pressure_values));
+    memset(temperature_values, 0, sizeof(temperature_values));
   }
   else
   {
@@ -68,8 +79,6 @@ void sd_manage(fs :: FS &fs , const char * path)
       Serial.println("------------------Arquivo fechado.------------------");
     }
   }
-
-
 }
 
 void data(void *pvParameters) //callback do int sensor() para poder criar uma task
@@ -80,13 +89,14 @@ void data(void *pvParameters) //callback do int sensor() para poder criar uma ta
     {
       if(xSemaphoreTake(xMutex, portMAX_DELAY) == pdTRUE)
       {
-        while(contador2 < 100)
+        while(contador2 < 10)
         {
           sensor();
           Serial.println(contador2);
-          String data_line = "Temperatura: " + String(temperature) + " | Pressão: " + String(pressure);
+          String data_line = "Temperatura: " + String(temperature) + " | Pressão: " + String(pressure / 1013.25);
           Serial.println(data_line);
-          sensor_values[contador2] = temperature;
+          temperature_values[contador2] = temperature;
+          pressure_values[contador2] = pressure / 101325;
           contador2 ++;
         }
       }
@@ -94,7 +104,7 @@ void data(void *pvParameters) //callback do int sensor() para poder criar uma ta
       xSemaphoreGive(xMutex);
       contador2 = 0;
     }
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
 }
 
@@ -107,7 +117,7 @@ void record(void * pvParameters) //grava os dados retornados pelo int sensor()
     {
       if(xSemaphoreTake(xMutex, portMAX_DELAY) == pdTRUE)
       {
-        sd_manage(SD, "/teste . txt");
+        sd_manage(SD, "teste . txt");
       }
       xSemaphoreGive(xMutex);
     }
@@ -132,7 +142,7 @@ void setup()
   Serial.println("Cartão SD encontrado.");
   
   Wire.begin();
-  bmp.begin();
+  bmp.begin(0x77);
 
   xTaskCreate(data, "task 1", 3000, NULL, 1, NULL);
   xTaskCreate(record, "task 2", 3000, NULL, 1, NULL);
