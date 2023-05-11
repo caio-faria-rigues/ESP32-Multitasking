@@ -1,8 +1,3 @@
-//#################
-//###Caio Rigues###
-//#################
-
-//Bibliotecas
 #include "SD.h"
 #include "FS.h"
 #include <SPI.h>
@@ -11,16 +6,16 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-//Pinos do Módulo Micro SD
+
 #define SCK_PIN 18
 #define MISO_PIN 19
 #define MOSI_PIN 23
 #define CS_PIN 5
 
-//Pino do botão para mudar os status do sistema
+#define P0 1013.25
+
 #define BTN_CHANGE_STATUS 15
 
-//Variáveis e Arrays utilizadas nos loops
 int contador = 0;
 int contador2 = 0;
 int cont = 0; 
@@ -29,32 +24,29 @@ int pressure_values_size = sizeof(pressure_values) / sizeof(pressure_values[0]);
 int temperature_values[100] = {};
 int temperature_values_size = sizeof(temperature_values) / sizeof(temperature_values[0]);
 
-//Declara o semáforo Mutex
 SemaphoreHandle_t xMutex;
 
-//Objetos, pinos e variáveis do sensor BMP280
 Adafruit_BMP280 bmp;
 #define BMP_SDA 21//Definição dos pinos I2C
 #define BMP_SCL 22
 uint32_t pressure = 0;
 float temperature = 0;
-#define P0 1013.25
 
-void sensor() //Retorna os valores lidos do instante nas variáveis globais
+void sensor() //pega e trata os dados do sensor ultrassonico
 {
   pressure = bmp.readPressure();
   temperature = bmp.readTemperature();
 }
 
-void sd_manage(fs :: FS &fs , const char * path) //Sobrescreve os dados lidos pelo sensor() e tratados pelo data() no final do arquivo
-{                                                // /teste . txt no Cartão SD
+void sd_manage(fs :: FS &fs , const char * path)
+{
   contador ++;
   File file = fs.open(path, FILE_APPEND);
 
-  if(file) //Verifica se o arquivo foi aberto corretamente
+  if(file)
   {
-    for(int i = 0; i < pressure_values_size; i++) //Adiciona cada valor das arrays temperature_values e pressure_values ao final do
-    {                                             //arquivo, linha por linha, enquanto houver itens nas listas
+    for(int i = 0; i < pressure_values_size; i++)
+    {
       file.print("Temperatura ");
       
       file.println(temperature_values[i]);
@@ -68,27 +60,27 @@ void sd_manage(fs :: FS &fs , const char * path) //Sobrescreve os dados lidos pe
     }
     file.close();
     Serial.println("Arquivo Atualizado");
-    memset(pressure_values, 0, sizeof(pressure_values)); //Apaga os valores da lista e a prepara para receber os 100 valores novamente
+    memset(pressure_values, 0, sizeof(pressure_values));
     memset(temperature_values, 0, sizeof(temperature_values));
   }
   else
   {
     Serial.println("Falha ao acessar o arquivo.");
   }
-  if(cont % 3 == 0) //Verifica se o botão foi apertado n vezes (multiplo de 3) para permitir que o arquivo teste . txt seja printado
-  {                 //no monitor serial
-    File file_read = fs.open(path);
-    if(file_read)
-    {
-      Serial.println("------------------Leitura do arquivo: ------------------");
-      while(file_read.available())
-      {
-        Serial.write(file_read.read());
-      }
-      file_read.close();
-      Serial.println("------------------Arquivo fechado.------------------");
-    }
-  }
+  //if(cont % 3 == 0)
+  //{
+  //  File file_read = fs.open(path);
+  //  if(file_read)
+  //  {
+  //    Serial.println("------------------Leitura do arquivo: ------------------");
+  //    while(file_read.available())
+  //    {
+  //      Serial.write(file_read.read());
+  //    }
+  //    file_read.close();
+  //    Serial.println("------------------Arquivo fechado.------------------");
+  //  }
+  //}
 }
 
 void data(void *pvParameters) //callback do int sensor() para poder criar uma task
@@ -141,11 +133,11 @@ void record(void * pvParameters) //grava os dados retornados pelo int sensor()
   }
 }
 
-void butao() //Verifica o estado do botão
+void butao()
 {
-  if(!digitalRead(BTN_CHANGE_STATUS)){                   // Verifica se o botão 1 foi pressionado
+  if(!digitalRead(BTN_CHANGE_STATUS)){                                  // Verifica se o botão 1 foi pressionado
     cont++;                                              // Caso tenha incrementa +1 a cont
-    while(!digitalRead(BTN_CHANGE_STATUS)){delay(10);}   // Loop até que o botão 1 seja solto
+    while(!digitalRead(BTN_CHANGE_STATUS)){delay(10);}                // Loop até que o botão 1 seja solto
     Serial.println("Contador: ");                       // Imprime a quantidade de cont na Serial
     Serial.println(cont);
   }
