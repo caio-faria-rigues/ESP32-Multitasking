@@ -6,6 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
+
 #define SCK_PIN 14
 #define MISO_PIN 12
 #define MOSI_PIN 13
@@ -21,11 +22,15 @@ int sensor_values[100] = {};
 int sensor_values_size = sizeof(sensor_values) / sizeof(sensor_values[0]);
 
 SemaphoreHandle_t xMutex;
-BMP280 bmp;
 
-int sensor() //pega e trata os dados do sensor ultrassonico
+BMP280 bmp;
+uint32_t pressure = 0;
+float temperature = 0;
+
+void sensor() //pega e trata os dados do sensor ultrassonico
 {
-  return 5;
+  pressure = bmp.getPressure();
+  temperature = bmp.getTemperature();
 }
 
 void sd_manage(fs :: FS &fs , const char * path)
@@ -77,10 +82,11 @@ void data(void *pvParameters) //callback do int sensor() para poder criar uma ta
       {
         while(contador2 < 100)
         {
-          int distance = sensor();
-          Serial.println("Distância em CM: ");
-          Serial.println(distance);
-          sensor_values[contador2] = distance;
+          sensor();
+          Serial.println(contador2);
+          String data_line = "Temperatura: " + String(temperature) + " | Pressão: " + String(pressure);
+          Serial.println(data_line);
+          sensor_values[contador2] = temperature;
           contador2 ++;
         }
       }
@@ -88,7 +94,7 @@ void data(void *pvParameters) //callback do int sensor() para poder criar uma ta
       xSemaphoreGive(xMutex);
       contador2 = 0;
     }
-    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
   }
 }
 
@@ -125,11 +131,8 @@ void setup()
   }
   Serial.println("Cartão SD encontrado.");
   
-  if(!bmp.begin())
-    {
-      Serial.println("Sensor BMP não inicializado...");
-    }
-  //bmp.setOversampling(4);
+  Wire.begin();
+  bmp.begin();
 
   xTaskCreate(data, "task 1", 3000, NULL, 1, NULL);
   xTaskCreate(record, "task 2", 3000, NULL, 1, NULL);
