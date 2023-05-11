@@ -1,15 +1,17 @@
-#include <SD.h>
+#include "SD.h"
+#include "FS.h"
+#include <SPI.h>
+#include <BMP280.h>
+#include <Wire.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 
-#define CS_PIN 5
-#define DI_PIN 23
-#define DO_PIN 19
-#define SCK_PIN 18
+#define SCK_PIN 14
+#define MISO_PIN 12
+#define MOSI_PIN 13
+#define CS_PIN 15
 
-#define ECHO 33
-#define TRIGGER 25
-#define MAX_DISTANCE 500
+#define P0 1013.25
 
 #define BTN_CHANGE_STATUS 13
 
@@ -19,42 +21,50 @@ int sensor_values[100] = {};
 int sensor_values_size = sizeof(sensor_values) / sizeof(sensor_values[0]);
 
 SemaphoreHandle_t xMutex;
-
-void setup()
-{
-  xMutex = xSemaphoreCreateMutex();
-  Serial.begin(115200);
-  Serial.println("Inicializando o cartão SD...");
-
-  if(!SD.begin(CS_PIN))
-  {
-    Serial.println("Cartão SD não encontrado.");
-    return;
-  }
-  Serial.println("Cartão SD encontrado.");
-
-  xTaskCreate(data, "task 1", 1000, NULL, 1, NULL);
-  xTaskCreate(record, "task 2", 3000, NULL, 1, NULL);
-}
-
-void loop()
-{
-
-}
+BMP280 bmp;
 
 int sensor() //pega e trata os dados do sensor ultrassonico
 {
-  pinMode(TRIGGER, OUTPUT);
-  pinMode(ECHO, INPUT);
+  return 5;
+}
 
-  digitalWrite(TRIGGER, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(TRIGGER, LOW);
+void sd_manage(fs :: FS &fs , const char * path)
+{
+  contador ++;
+  File file = fs.open(path, FILE_APPEND);
 
-  int duration = pulseIn(ECHO, HIGH);
-  int distance = duration / 58;
-  
-  return distance;
+  if(file)
+  {
+    for(int i = 0; i < sensor_values_size; i++)
+    {
+      file.print("Distância: ");
+      file.println(sensor_values[i]);
+      Serial.println(sensor_values[i]);
+    }
+    file.close();
+    Serial.println("Arquivo Atualizado");
+    memset(sensor_values, 0, sizeof(sensor_values));
+  }
+  else
+  {
+    Serial.println("Falha ao acessar o arquivo.");
+  }
+  if(contador >= 2)
+  {
+    File file_read = fs.open(path);
+    if(file_read)
+    {
+      Serial.println("------------------Leitura do arquivo: ------------------");
+      while(file_read.available())
+      {
+        Serial.write(file_read.read());
+      }
+      file_read.close();
+      Serial.println("------------------Arquivo fechado.------------------");
+    }
+  }
+
+
 }
 
 void data(void *pvParameters) //callback do int sensor() para poder criar uma task
@@ -86,47 +96,46 @@ void record(void * pvParameters) //grava os dados retornados pelo int sensor()
 {
   while(1)
   {
+    Serial.println(" Chegou aqui ------------------------------------------------");
     if(xMutex != NULL)
     {
       if(xSemaphoreTake(xMutex, portMAX_DELAY) == pdTRUE)
       {
-        contador ++;
-        int distance = sensor();
-        File file = SD.open("/teste.txt", FILE_APPEND);
-
-        if(file)
-        {
-          for(int i = 0; i < sensor_values_size; i++)
-          {
-            file.print("Distância: ");
-            file.println(sensor_values[i]);
-            Serial.println(sensor_values[i]);
-          }
-          file.close();
-          Serial.println("Arquivo Atualizado");
-          memset(sensor_values, 0, sizeof(sensor_values));
-        }
-        else
-        {
-          Serial.println("Falha ao acessar o arquivo.");
-        }
-        if(contador >= 2)
-        {
-          File file_read = SD.open("/teste.txt");
-          if(file_read)
-          {
-            Serial.println("Leitura do arquivo: ");
-            while(file_read.available())
-            {
-              Serial.write(file_read.read());
-            }
-            file_read.close();
-            Serial.println("Arquivo fechado.");
-          }
-        }
+        sd_manage(SD, "/teste . txt");
       }
       xSemaphoreGive(xMutex);
     }
     vTaskDelay(1000 / portTICK_PERIOD_MS);
   }
+}
+
+void setup()
+{
+  xMutex = xSemaphoreCreateMutex();
+  Serial.begin(115200);
+  delay(1000);
+  Serial.println("Inicializando o cartão SD...");
+  SPIClass spi = SPIClass (HSPI);
+  spi.begin(SCK_PIN, MISO_PIN, MOSI_PIN, CS_PIN);
+
+  if(!SD.begin(CS_PIN, spi, 80000000))
+  {
+    Serial.println("Cartão SD não encontrado.");
+    return;
+  }
+  Serial.println("Cartão SD encontrado.");
+  
+  if(!bmp.begin())
+    {
+      Serial.println("Sensor BMP não inicializado...");
+    }
+  //bmp.setOversampling(4);
+
+  xTaskCreate(data, "task 1", 3000, NULL, 1, NULL);
+  xTaskCreate(record, "task 2", 3000, NULL, 1, NULL);
+}
+
+void loop()
+{
+
 }
